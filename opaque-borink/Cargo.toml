@@ -1,7 +1,7 @@
 [package]
 name = "opaque-borink"
-version = "0.6.1"
-edition = "2021"
+version = "0.7.0"
+edition = "2024"
 authors = ["Tip ten Brink <75669206+tiptenbrink@users.noreply.github.com>"]
 license = "Apache-2.0 OR MIT"
 keywords = ["opaque", "passwords", "authentication", "serialization"]
@@ -10,7 +10,7 @@ repository = "https://github.com/tiptenbrink/opaque-borink/tree/main/opaque-bori
 description = "Simple configuration of OPAQUE, a passowrd-authenticated key exchange protocol."
 
 [dependencies]
-opaque-ke = { version = "3.0.0", features = ["argon2"] }
+opaque-ke = { version = "4.0.1", features = ["argon2"] }
 sha2 = "0.10.8"
 rand = { version = "0.8.5", default-features = false, features = ["getrandom", "std", "std_rng"] }
 generic-array = { version = "0.14.7" }

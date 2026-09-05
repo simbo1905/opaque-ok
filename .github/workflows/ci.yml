@@ -13,15 +13,14 @@ jobs:
   test-linux:
     strategy:
       matrix:
-        py-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        py-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     runs-on: ubuntu-latest
     steps:
     - uses: taiki-e/install-action@v2
       with:
-        tool: maturin@1.8.1
+        tool: maturin@1.15.0
     - name: Checkout opaquepy
-      uses: actions/checkout@v3
-    - run: cd opaquepy
+      uses: actions/checkout@v5
     - name: Install the latest version of uv
       uses: astral-sh/setup-uv@v5
       with:
@@ -43,10 +42,10 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        py-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        py-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py-version }}
       # The x86_64 Rust toolchain is installed on GitHub runners, but since we compile also for Apple Silicon, we also
@@ -60,9 +59,9 @@ jobs:
           args: --release --out dist -i ${{ matrix.py-version }}
           working-directory: opaquepy
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ runner.os }}
           path: ${{ github.workspace }}/opaquepy/dist
 
   build-windows:
@@ -71,10 +70,10 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        py-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        py-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py-version }}
       - name: Build wheels
@@ -84,9 +83,9 @@ jobs:
           args: --release --out dist -i ${{ matrix.py-version }}
           working-directory: opaquepy
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ runner.os }}
           path: ${{ github.workspace }}/opaquepy/dist
 
   build-linux:
@@ -95,10 +94,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        py-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        py-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py-version }}
       - name: Build wheels
@@ -110,9 +109,9 @@ jobs:
           args: --release --out dist -i ${{ matrix.py-version }}
           working-directory: opaquepy
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ runner.os }}
           path: ${{ github.workspace }}/opaquepy/dist
 
   release:
@@ -123,9 +122,10 @@ jobs:
       id-token: write
     needs: [ build-macos, build-windows, build-linux ]
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          pattern: wheels-*
+          merge-multiple: true
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         with:

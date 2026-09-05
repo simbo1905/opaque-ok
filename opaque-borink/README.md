@@ -7,7 +7,7 @@ It enables a workflow where the server never learns the user password, yet the s
 It uses a basic CipherSuite configured as follows:
 
 * Ristretto255 as the OprfCs, i.e. the [`voprf`](https://github.com/facebook/voprf) CipherSuite, which means using [`curve25519_dalek`](https://github.com/dalek-cryptography/curve25519-dalek) as the Ristretto implementation and [`sha2`](https://github.com/RustCrypto/hashes)'s Sha512 as the hash implementation
-* Ristretto255 as the key exchange group (KeGroup), again implemented using [`curve25519_dalek`](https://github.com/dalek-cryptography/curve25519-dalek)
+* Ristretto255 as the key exchange group, again implemented using [`curve25519_dalek`](https://github.com/dalek-cryptography/curve25519-dalek)
 * opaque-ke's own TripleDH as KeyExchange
 * [argon2](https://github.com/RustCrypto/password-hashes/tree/master/argon2) default Argon2 as the key stretching function (Ksf)
 
@@ -31,4 +31,8 @@ It is optimized for the usecase in which the server is stateless, but the client
 
 #### v0.6.0
 
-- BREAKING: The entire API has been reengineered to be somewhat more flexible and no longer only have base64url input/output 
+- BREAKING: The entire API has been reengineered to be somewhat more flexible and no longer only have base64url input/output
+
+#### v0.7.0
+
+- BREAKING: Update opaque-ke to v4, which syncs with RFC 9807 and always creates a dummy record during login to avoid timing attacks. Existing password files remain valid, but `ServerSetup`s from v0.6.x or lower are no longer compatible and need to be recreated

@@ -10,8 +10,7 @@ use std::fmt::{Debug, Display, Formatter};
 pub struct Cipher;
 impl CipherSuite for Cipher {
     type OprfCs = opaque_ke::Ristretto255;
-    type KeGroup = opaque_ke::Ristretto255;
-    type KeyExchange = opaque_ke::key_exchange::tripledh::TripleDh;
+    type KeyExchange = opaque_ke::TripleDh<opaque_ke::Ristretto255, sha2::Sha512>;
     type Ksf = argon2::Argon2<'static>;
 }
 
@@ -46,7 +45,7 @@ pub(crate) mod opaque_impl {
         ClientLogin, ClientLoginFinishParameters, ClientRegistration,
         ClientRegistrationFinishParameters, CredentialFinalization, CredentialRequest,
         CredentialResponse, RegistrationRequest, RegistrationResponse, RegistrationUpload,
-        ServerLogin, ServerLoginStartParameters, ServerRegistration,
+        ServerLogin, ServerLoginParameters, ServerRegistration,
     };
     use rand::{
         rngs::{OsRng, ThreadRng},
@@ -80,7 +79,7 @@ pub(crate) mod opaque_impl {
             Self(server_setup)
         }
 
-        pub fn view(&self) -> ServerSetupView {
+        pub fn view(&self) -> ServerSetupView<'_> {
             ServerSetupView {
                 setup: &self.0,
                 rng: thread_rng(),
@@ -118,7 +117,7 @@ pub(crate) mod opaque_impl {
             Some(password_file.0.clone()),
             login_start_request,
             user_id.as_bytes(),
-            ServerLoginStartParameters::default(),
+            ServerLoginParameters::default(),
         )?;
 
         Ok(ServerLoginStartResult {
@@ -126,7 +125,6 @@ pub(crate) mod opaque_impl {
             state: result.state.serialize().into_array(),
         })
     }
-
     pub struct ClientStateLogin {
         rng: rand::rngs::ThreadRng,
         state: Option<ClientLogin<Cipher>>,
@@ -153,9 +151,10 @@ pub(crate) mod opaque_impl {
         if client_state.state.is_none() {
             panic!("Client state not initialized! Run `client_login_start` first!")
         }
-        let client_state = client_state.state.take().unwrap();
+        let state = client_state.state.take().unwrap();
         let server_message = CredentialResponse::<Cipher>::deserialize(server_message)?;
-        let result = client_state.finish(
+        let result = state.finish(
+            &mut client_state.rng,
             password,
             server_message,
             ClientLoginFinishParameters::default(),
@@ -174,7 +173,7 @@ pub(crate) mod opaque_impl {
         let state = ServerLogin::<Cipher>::deserialize(server_state)?;
         let login_finish_request =
             CredentialFinalization::<Cipher>::deserialize(login_finish_request)?;
-        let result = state.finish(login_finish_request)?;
+        let result = state.finish(login_finish_request, ServerLoginParameters::default())?;
         Ok(ServerLoginFinishResult {
             shared_secret: result.session_key.into_array(),
         })
@@ -304,7 +303,7 @@ pub(crate) mod opaque_impl {
     pub const SERVER_SETUP_LEN: usize = 128;
 
     pub const LOGIN_SERVER_MESSAGE_LEN: usize = 320;
-    pub const LOGIN_SERVER_STATE_LEN: usize = 192;
+    pub const LOGIN_SERVER_STATE_LEN: usize = 128;
     pub const LOGIN_CLIENT_STATE_LEN: usize = 192;
     pub const LOGIN_CLIENT_MESSAGE_LEN: usize = 96;
     pub const LOGIN_FINISH_MESSAGE_LEN: usize = 64;
@@ -431,7 +430,7 @@ pub(crate) mod opaque_impl {
                 Some(pw_file.clone()),
                 d.message,
                 "my_user".as_bytes(),
-                opaque_ke::ServerLoginStartParameters::default(),
+                opaque_ke::ServerLoginParameters::default(),
             )
             .unwrap();
 
@@ -447,6 +446,7 @@ pub(crate) mod opaque_impl {
             let h = d
                 .state
                 .finish(
+                    &mut rng,
                     "my_pass".as_bytes(),
                     e.message,
                     ClientLoginFinishParameters::default(),
@@ -478,9 +478,9 @@ pub mod test_util {
 
         let client_finish = client_register_finish(&mut client_state, password, &server_start.response).unwrap();
 
-        let server_finish = server_register_finish(&client_finish.response).unwrap();
+        
 
-        server_finish
+        server_register_finish(&client_finish.response).unwrap()
     }
 }
 
@@ -502,7 +502,7 @@ mod generic_array_backport {
         }
 
         let a = std::mem::ManuallyDrop::new(a);
-        std::mem::ManuallyDrop::into_inner(Union { a }.b)
+        unsafe { std::mem::ManuallyDrop::into_inner(Union { a }.b) }
     }
 
     pub trait IntoArray<N: ArrayLength<u8>> {
