@@ -4,13 +4,25 @@ on:
   # Do this when a new release is published
   push:
     branches: [ main, ci ]
+    # Docs-only or markdown-only push: nothing to build, so do not bill it.
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '**/*.md'
   pull_request:
   release:
     types: [ published ]
 
+# One run per ref: superseded pushes and PR commits are cancelled, not billed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Release events are the PyPI publish path: never cancelled mid-flight.
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
 jobs:
   # Build for manylinux, which allows it to be run on many different Linux platforms
   test-linux:
+    timeout-minutes: 20
     strategy:
       matrix:
         py-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
@@ -37,6 +49,7 @@ jobs:
       working-directory: ${{ github.workspace }}/opaquepy
 
   build-macos:
+    timeout-minutes: 30
     if: ${{ github.event_name == 'release' && github.event.action == 'published' }}
     needs: [ test-linux ]
     runs-on: macos-latest
@@ -65,6 +78,7 @@ jobs:
           path: ${{ github.workspace }}/opaquepy/dist
 
   build-windows:
+    timeout-minutes: 20
     if: ${{ github.event_name == 'release' && github.event.action == 'published' }}
     needs: [ test-linux ]
     runs-on: windows-latest
@@ -89,6 +103,7 @@ jobs:
           path: ${{ github.workspace }}/opaquepy/dist
 
   build-linux:
+    timeout-minutes: 20
     if: ${{ github.event_name == 'release' && github.event.action == 'published' }}
     needs: [ test-linux ]
     runs-on: ubuntu-latest
@@ -116,6 +131,7 @@ jobs:
 
   release:
     name: Release
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     environment: release
     permissions:
